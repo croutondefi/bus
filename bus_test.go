@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mustafaturan/bus/v3"
+	"github.com/croutondefi/bus/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,13 +35,13 @@ func TestNew(t *testing.T) {
 	var fn bus.Next = func() string { return "afakeid" }
 
 	t.Run("with valid generator", func(t *testing.T) {
-		b, err := bus.NewBus(fn)
+		b, err := bus.NewBus(fn, bus.DefaultQueryCapacity)
 		require.Nil(t, err)
 		assert.IsType(t, &bus.Bus{}, b)
 	})
 
 	t.Run("with invalid generator", func(t *testing.T) {
-		b, err := bus.NewBus(nil)
+		b, err := bus.NewBus(nil, bus.DefaultQueryCapacity)
 		require.Nil(t, b)
 		assert.NotNil(t, err)
 		if assert.Error(t, err) {
@@ -280,7 +280,7 @@ func TestDeregisterHandler(t *testing.T) {
 
 func setup(topicNames ...string) *bus.Bus {
 	var fn bus.Next = func() string { return "fakeid" }
-	b, _ := bus.NewBus(fn)
+	b, _ := bus.NewBus(fn, bus.DefaultQueryCapacity)
 	b.RegisterTopics(topicNames...)
 	return b
 }

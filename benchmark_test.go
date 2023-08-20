@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mustafaturan/bus/v3"
+	"github.com/croutondefi/bus/v3"
 )
 
 func BenchmarkEmit(b *testing.B) {

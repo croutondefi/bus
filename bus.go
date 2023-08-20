@@ -12,13 +12,22 @@ import (
 	"time"
 )
 
+const DefaultQueryCapacity = 10
+
 type (
 	// Bus is a message bus
 	Bus struct {
+		query    chan eventAction
 		mutex    sync.RWMutex
 		idgen    Next
 		topics   map[string][]Handler
 		handlers map[string]Handler
+	}
+
+	eventAction struct {
+		event   Event
+		handler Handler
+		ctx     context.Context
 	}
 
 	// Next is a sequential unique id generator func type
@@ -69,17 +78,34 @@ const (
 	empty = ""
 )
 
+func (a *eventAction) Handle() {
+	a.handler.Handle(a.ctx, a.event)
+}
+
+func worker(id int, query <-chan eventAction) {
+	for action := range query {
+		action.Handle()
+	}
+}
+
 // NewBus inits a new bus
-func NewBus(g IDGenerator) (*Bus, error) {
+func NewBus(g IDGenerator, cap int) (*Bus, error) {
 	if g == nil {
 		return nil, fmt.Errorf("bus: Next() id generator func can't be nil")
 	}
 
-	return &Bus{
+	b := &Bus{
+		query:    make(chan eventAction),
 		idgen:    g.Generate,
 		topics:   make(map[string][]Handler),
 		handlers: make(map[string]Handler),
-	}, nil
+	}
+
+	for i := 0; i < cap; i++ {
+		go worker(i, b.query)
+	}
+
+	return b, nil
 }
 
 // WithID returns an option to set event's id field
@@ -117,55 +143,24 @@ func WithOccurredAt(time time.Time) EventOption {
 // Emit inits a new event and delivers to the interested in handlers with
 // sync safety
 func (b *Bus) Emit(ctx context.Context, topic string, data interface{}) error {
-	b.mutex.RLock()
-	handlers, ok := b.topics[topic]
-	b.mutex.RUnlock()
-
-	if !ok {
-		return fmt.Errorf("bus: topic(%s) not found", topic)
-	}
-
-	source, _ := ctx.Value(CtxKeySource).(string)
-	txID, _ := ctx.Value(CtxKeyTxID).(string)
-	if txID == empty {
-		txID = b.idgen()
-		ctx = context.WithValue(ctx, CtxKeyTxID, txID)
-	}
-
-	e := Event{
-		ID:         b.idgen(),
-		Topic:      topic,
-		Data:       data,
-		OccurredAt: time.Now(),
-		TxID:       txID,
-		Source:     source,
-	}
-
-	for _, h := range handlers {
-		h.Handle(ctx, e)
-	}
-
-	return nil
+	return b.EmitWithOpts(ctx, topic, data)
 }
 
 // EmitWithOpts inits a new event and delivers to the interested in handlers
 // with sync safety and options
 func (b *Bus) EmitWithOpts(ctx context.Context, topic string, data interface{}, opts ...EventOption) error {
-	b.mutex.RLock()
-	handlers, ok := b.topics[topic]
-	b.mutex.RUnlock()
-
-	if !ok {
-		return fmt.Errorf("bus: topic(%s) not found", topic)
-	}
-
 	e := Event{Topic: topic, Data: data}
 	for _, o := range opts {
 		e = o(e)
 	}
 
 	if e.TxID == empty {
-		e.TxID = b.idgen()
+		txID, _ := ctx.Value(CtxKeyTxID).(string)
+		if txID == empty {
+			txID = b.idgen()
+			ctx = context.WithValue(ctx, CtxKeyTxID, txID)
+		}
+		e.TxID = txID
 	}
 	if e.ID == empty {
 		e.ID = b.idgen()
@@ -174,8 +169,22 @@ func (b *Bus) EmitWithOpts(ctx context.Context, topic string, data interface{}, 
 		e.OccurredAt = time.Now()
 	}
 
+	b.mutex.RLock()
+	handlers, ok := b.topics[topic]
+	b.mutex.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("bus: topic(%s) not found", topic)
+	}
+
 	for _, h := range handlers {
-		h.Handle(ctx, e)
+		go func(h Handler) {
+			b.query <- eventAction{
+				event:   e,
+				handler: h,
+				ctx:     ctx,
+			}
+		}(h)
 	}
 
 	return nil

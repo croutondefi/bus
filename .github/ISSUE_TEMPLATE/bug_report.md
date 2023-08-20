@@ -3,7 +3,7 @@ name: Bug report
 about: Create a report to help the package improve
 title: ''
 labels: ''
-assignees: mustafaturan
+assignees: croutondefi
 
 ---
 

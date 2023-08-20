@@ -1,10 +1,10 @@
 # 🔊 Bus
 
-[![GoDoc](https://godoc.org/github.com/mustafaturan/bus?status.svg)](https://godoc.org/github.com/mustafaturan/bus)
-[![Build Status](https://travis-ci.org/mustafaturan/bus.svg?branch=main)](https://travis-ci.org/mustafaturan/bus)
-[![Coverage Status](https://coveralls.io/repos/github/mustafaturan/bus/badge.svg?branch=main)](https://coveralls.io/github/mustafaturan/bus?branch=main)
-[![Go Report Card](https://goreportcard.com/badge/github.com/mustafaturan/bus)](https://goreportcard.com/report/github.com/mustafaturan/bus)
-[![GitHub license](https://img.shields.io/github/license/mustafaturan/bus.svg)](https://github.com/mustafaturan/bus/blob/main/LICENSE)
+[![GoDoc](https://godoc.org/github.com/croutondefi/bus?status.svg)](https://godoc.org/github.com/croutondefi/bus)
+[![Build Status](https://travis-ci.org/croutondefi/bus.svg?branch=main)](https://travis-ci.org/croutondefi/bus)
+[![Coverage Status](https://coveralls.io/repos/github/croutondefi/bus/badge.svg?branch=main)](https://coveralls.io/github/croutondefi/bus?branch=main)
+[![Go Report Card](https://goreportcard.com/badge/github.com/croutondefi/bus)](https://goreportcard.com/report/github.com/croutondefi/bus)
+[![GitHub license](https://img.shields.io/github/license/croutondefi/bus.svg)](https://github.com/croutondefi/bus/blob/main/LICENSE)
 
 Bus is a minimalist event/message bus implementation for internal communication.
 It is heavily inspired from my [event_bus](https://github.com/otobus/event_bus)
@@ -18,7 +18,7 @@ on the package for the version `3.x.x` except any bug fixes.
 ## Installation
 
 Via go packages:
-```go get github.com/mustafaturan/bus/v3```
+```go get github.com/croutondefi/bus/v3```
 
 ## Usage
 
@@ -32,14 +32,14 @@ The `bus` package respect to software design choice of the packages/projects. It
 supports both singleton and dependency injection to init a `bus` instance.
 
 *Hint:*
-Check the [demo project](https://github.com/mustafaturan/bus-sample-project) for
+Check the [demo project](https://github.com/croutondefi/bus-sample-project) for
 the singleton configuration.
 
 Here is a sample initilization using `monoton` id generator:
 
 ```go
 import (
-    "github.com/mustafaturan/bus/v3"
+    "github.com/croutondefi/bus/v3"
     "github.com/mustafaturan/monoton/v2"
     "github.com/mustafaturan/monoton/v2/sequencer"
 )
@@ -151,7 +151,7 @@ type Event struct {
 
 ### Sample Project
 
-A [demo project](https://github.com/mustafaturan/bus-sample-project) with three
+A [demo project](https://github.com/croutondefi/bus-sample-project) with three
 consumers which increments a `counter` for each event topic, `printer` consumer
 which prints all events and lastly `calculator` consumer which sums amounts.
 
@@ -159,21 +159,21 @@ which prints all events and lastly `calculator` consumer which sums amounts.
 
 Command:
 ```
-go test -benchtime 10000000x -benchmem -run=^$ -bench=. github.com/mustafaturan/bus/v3
+go test -benchtime 10000000x -benchmem -run=^$ -bench=. github.com/croutondefi/bus/v3
 ```
 
 Results:
 ```
 goos: darwin
 goarch: amd64
-pkg: github.com/mustafaturan/bus/v3
+pkg: github.com/croutondefi/bus/v3
 cpu: Intel(R) Core(TM) i5-6267U CPU @ 2.90GHz
 BenchmarkEmit-4                      	10000000	       180.5 ns/op	       8 B/op	       0 allocs/op
 BenchmarkEmitWithoutTxID-4           	10000000	       244.6 ns/op	      72 B/op	       2 allocs/op
 BenchmarkEmitWithOpts-4              	10000000	       280.8 ns/op	     112 B/op	       4 allocs/op
 BenchmarkEmitWithOptsUnspecified-4   	10000000	       169.4 ns/op	       8 B/op	       0 allocs/op
 PASS
-ok  	github.com/mustafaturan/bus/v3	8.884s
+ok  	github.com/croutondefi/bus/v3	8.884s
 ```
 
 ## Contributing
@@ -182,7 +182,7 @@ All contributors should follow [Contributing Guidelines](CONTRIBUTING.md) before
 
 ## Credits
 
-[Mustafa Turan](https://github.com/mustafaturan)
+[Mustafa Turan](https://github.com/croutondefi)
 
 ## License
 
