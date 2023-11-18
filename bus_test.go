@@ -104,7 +104,7 @@ func TestEmitWithOpts(t *testing.T) {
 			bus.WithTxID("tx"),
 			bus.WithID("id"),
 			bus.WithSource("source"),
-			bus.WithOccurredAt(time.Now()),
+			bus.WithScheduledAt(time.Now()),
 		)
 
 		assert := assert.New(t)
@@ -300,7 +300,7 @@ func registerFakeHandler(b *bus.Bus, key string, t *testing.T) {
 			assert.Equal("fakeid", e.ID)
 			assert.Equal(topicCommentCreated, e.Topic)
 			assert.Equal("my comment with handler", e.Data)
-			assert.True(e.OccurredAt.Before(time.Now()))
+			assert.True(e.ScheduledAt.Before(time.Now()))
 		})
 	}
 	h := bus.Handler{Handle: fn, Matcher: ".*created$"}

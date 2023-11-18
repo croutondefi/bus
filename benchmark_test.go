@@ -79,7 +79,7 @@ func BenchmarkEmitWithOpts(b *testing.B) {
 			bus.WithTxID("tx"),
 			bus.WithSource("source"),
 			bus.WithID("id"),
-			bus.WithOccurredAt(now),
+			bus.WithScheduledAt(now),
 		)
 	}
 }
