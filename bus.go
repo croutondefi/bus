@@ -15,15 +15,6 @@ import (
 const DefaultQueryCapacity = 10
 
 type (
-	// Bus is a message bus
-	Bus struct {
-		query    chan eventAction
-		mutex    sync.RWMutex
-		idgen    Next
-		topics   map[string][]Handler
-		handlers map[string]Handler
-	}
-
 	eventAction struct {
 		event   Event
 		handler Handler
@@ -38,32 +29,50 @@ type (
 		Generate() string
 	}
 
-	// Event is data structure for any logs
-	Event struct {
-		ID         string      // identifier
-		TxID       string      // transaction identifier
-		Topic      string      // topic name
-		Source     string      // source of the event
-		OccurredAt time.Time   // creation time in nanoseconds
-		Data       interface{} // actual event data
-	}
-
-	// Handler is a receiver for event reference with the given regex pattern
-	Handler struct {
-		key string
-
-		// handler func to process events
-		Handle func(ctx context.Context, e Event)
-
-		// topic matcher as regex pattern
-		Matcher string
-	}
-
-	// EventOption is a function type to mutate event fields
-	EventOption = func(Event) Event
-
 	ctxKey int8
 )
+
+type ICache interface {
+	Set(k string, x interface{}, exp time.Time)
+	Restore(k string, x interface{}, exp time.Time)
+}
+
+// Bus is a message bus
+type Bus struct {
+	storages []Storage
+	cache    ICache
+	query    chan eventAction
+	mutex    sync.RWMutex
+	idgen    Next
+	topics   map[string][]Handler
+	handlers map[string]Handler
+}
+
+type cacheProxy struct {
+	b     *Bus
+	cache *Cache
+}
+
+func (c *cacheProxy) Restore(k string, x interface{}, exp time.Time) {
+	c.cache.Set(k, x, exp)
+}
+
+func (c *cacheProxy) Set(k string, x interface{}, exp time.Time) {
+	for i := range c.b.storages {
+		event := x.(Event)
+		_ = c.b.storages[i].Save(&event)
+	}
+	c.cache.Set(k, x, exp)
+}
+
+// Handler is a receiver for event reference with the given regex pattern
+type Handler struct {
+	key string
+	// handler func to process events
+	Handle func(ctx context.Context, e Event)
+	// topic matcher as regex pattern
+	Matcher string
+}
 
 const (
 	// CtxKeyTxID tx id context key
@@ -73,7 +82,7 @@ const (
 	CtxKeySource = ctxKey(117)
 
 	// Version syncs with package version
-	Version = "3.0.3"
+	Version = "3.2.2"
 
 	empty = ""
 )
@@ -101,6 +110,21 @@ func NewBus(g IDGenerator, cap int) (*Bus, error) {
 		handlers: make(map[string]Handler),
 	}
 
+	cache := NewCache(func(e any) {
+		event, ok := e.(Event)
+
+		if !ok {
+			return
+		}
+
+		b.handleEvent(context.Background(), event)
+	})
+
+	b.cache = &cacheProxy{
+		b:     b,
+		cache: &cache,
+	}
+
 	for i := 0; i < cap; i++ {
 		go worker(i, b.query)
 	}
@@ -108,36 +132,23 @@ func NewBus(g IDGenerator, cap int) (*Bus, error) {
 	return b, nil
 }
 
-// WithID returns an option to set event's id field
-func WithID(id string) EventOption {
-	return func(e Event) Event {
-		e.ID = id
-		return e
-	}
+func (b *Bus) AddStorage(s Storage) {
+	b.storages = append(b.storages, s)
 }
 
-// WithTxID returns an option to set event's txID field
-func WithTxID(txID string) EventOption {
-	return func(e Event) Event {
-		e.TxID = txID
-		return e
-	}
-}
+func (b *Bus) Preload() error {
+	for _, s := range b.storages {
+		events, err := s.Load()
+		if err != nil {
+			return err
+		}
 
-// WithSource returns an option to set event's source field
-func WithSource(source string) EventOption {
-	return func(e Event) Event {
-		e.Source = source
-		return e
+		for i := range events {
+			b.cache.Restore(events[i].ID, events[i], events[i].ScheduledAt)
+		}
 	}
-}
 
-// WithOccurredAt returns an option to set event's occurredAt field
-func WithOccurredAt(time time.Time) EventOption {
-	return func(e Event) Event {
-		e.OccurredAt = time
-		return e
-	}
+	return nil
 }
 
 // Emit inits a new event and delivers to the interested in handlers with
@@ -165,16 +176,24 @@ func (b *Bus) EmitWithOpts(ctx context.Context, topic string, data interface{}, 
 	if e.ID == empty {
 		e.ID = b.idgen()
 	}
-	if e.OccurredAt.IsZero() {
-		e.OccurredAt = time.Now()
+	if e.ScheduledAt.IsZero() {
+		e.ScheduledAt = time.Now()
+	} else {
+		b.cache.Set(e.ID, e, e.ScheduledAt)
+
+		return nil
 	}
 
+	return b.handleEvent(ctx, e)
+}
+
+func (b *Bus) handleEvent(ctx context.Context, e Event) error {
 	b.mutex.RLock()
-	handlers, ok := b.topics[topic]
+	handlers, ok := b.topics[e.Topic]
 	b.mutex.RUnlock()
 
 	if !ok {
-		return fmt.Errorf("bus: topic(%s) not found", topic)
+		return fmt.Errorf("bus: topic(%s) not found", e.Topic)
 	}
 
 	for _, h := range handlers {
