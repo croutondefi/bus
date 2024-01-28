@@ -82,7 +82,7 @@ const (
 	CtxKeySource = ctxKey(117)
 
 	// Version syncs with package version
-	Version = "3.2.2"
+	Version = "3.2.3"
 
 	empty = ""
 )
